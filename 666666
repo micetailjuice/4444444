@@ -1,0 +1,138 @@
+import numpy as np
+import os
+import pandas as pd
+import sys
+carb = '../input/garbage-classification/Garbage classification/Garbage classification/cardboard'
+glass ="../input/garbage-classification/Garbage classification/Garbage classification/glass"
+metal ="../input/garbage-classification/Garbage classification/Garbage classification/metal"
+paper = "../input/garbage-classification/Garbage classification/Garbage classification/paper"
+plastic ="../input/garbage-classification/Garbage classification/Garbage classificationÔastic"
+trash ="../input/garbage-classification/Garbage classification/Garbage classification/trash"
+import cv2  
+import os
+X=[]
+y_label =[]
+imgsize = 150
+#定义函数读入图像
+def train_data(label,data_dir):
+    print("正在录入信息：",data_dir)
+    for img in os.listdir(data_dir):
+        path = os.path.join(data_dir,img)
+        print(path)
+        img = cv2.imread(path,1)
+        print(img)
+        
+        img = cv2.resize(img,(imgsize,imgsize))
+        X.append(np.array(img))
+        y_label.append(str(label))
+        
+#读入图像
+train_data('carboard',carb)
+train_data('class',glass)
+train_data('metal',metal)
+train_data('paper',paper)
+train_data('plastic',plastic)
+train_data('trash',trash)
+# train_data('d7',d7)
+# train_data('d8',d8)
+# train_data('d9',d9)
+# train_data('d10',d10)
+from sklearn.preprocessing import LabelEncoder   #标签编码工具
+from keras.utils.np_utils import to_categorical   #导入one-hot编码工具
+label_encoder = LabelEncoder()
+y = label_encoder.fit_transform(y_label)  #标签编码
+y = to_categorical(y,6)  #将标签转化为one-hot编码
+X = np.array(X)  #将X列表转化为张量数组
+X = X/255  # 简单压缩，将X张量统一归一化
+y
+print('X张量的形状：',X.shape)
+print('X张量的第一个数据',X[1])
+print('y张量的形状：',y.shape)
+print("y张量的第一个数据",y[1])  #验证one-hot
+import matplotlib.pyplot as plt
+import random as rdm
+#随机显示图片
+fig,ax = plt.subplots(5,3)
+fig.set_size_inches(15,15)
+for i in range(5):
+    for j in range(3):
+        r = rdm.randint(0,len(X))
+        ax[i,j].imshow(X[r])
+        ax[i,j].set_title("garbage:"+y_label[r])
+plt.tight_layout()          #自动调整子图参数
+from sklearn.model_selection import train_test_split
+X_train,X_test,y_train,y_test =train_test_split(X,y,test_size =0.2,random_state =0)
+#建立简单卷积网络
+from keras import layers  #导入所有层
+from keras import models
+cnn = models.Sequential()   #序贯模型
+cnn.add(layers.Conv2D(32,(3,3), activation = "relu",input_shape=(150,150,3)))  #卷积层
+cnn.add(layers.MaxPooling2D((2,2)))    #最大池化层
+cnn.add(layers.Conv2D(64,(3,3),activation = 'relu'))   #卷积层64
+cnn.add(layers.MaxPooling2D((2,2)))   #最大池化层
+cnn.add(layers.Conv2D(128,(3,3),activation = 'relu'))  #卷积层 128
+cnn.add(layers.MaxPooling2D((2,2)))   #最大池化层
+cnn.add(layers.Conv2D(128,(3,3),activation="relu"))   #卷积层128
+cnn.add(layers.MaxPooling2D((2,2)))  #最大池化层
+cnn.add(layers.Flatten())   #展平层
+cnn.add(layers.Dense(512,activation="relu"))     #全连接层
+cnn.add(layers.Dense(6,activation="softmax"))   #分类输出
+cnn.compile(loss='categorical_crossentropy', #损失函数
+           optimizer ='rmsprop',#  优化器
+            metrics=['acc']  #评估指标
+           )
+def show_history(history):    
+    loss = history.history['loss']
+    val_loss = history.history['val_loss']
+    epochs = range(1,len(loss)+1)
+    plt.figure(figsize=(12,4))
+    plt.subplot(1,2,1)
+    plt.plot(epochs,loss,'bo',label="Training loss")
+    plt.plot(epochs,val_loss,'b',label="Validation loss")
+    plt.title("Training and validation loss")
+    plt.xlabel('Epochs')
+    plt.ylabel("Loss")
+    plt.legend()
+    acc = history.history['acc']
+    val_acc = history.history['val_acc']
+    plt.subplot(1,2,2)
+    plt.plot(epochs,acc,'bo',label="Training acc")
+    plt.plot(epochs,val_acc,'b', label ='Validation acc')
+    plt.title("Training and validation accuracy")
+    plt.xlabel("Epochs")
+    plt.ylabel('Accuray')
+    plt.legend()
+    plt.show()
+# show_history(history)  
+history = cnn.fit(X_train,y_train, #指定训练集
+                 epochs=50,   #指定循环轮次
+                  batch_size=256,  #指定批量大小
+                  validation_data=(X_test,y_test)  #指定验证集
+                 )
+show_history(history)
+from keras import optimizers
+cnn = models.Sequential()   #序贯模型
+cnn.add(layers.Conv2D(32,(3,3),activation= 'relu', #卷积层
+           input_shape=(150,150,3)))
+cnn.add(layers.MaxPooling2D((2,2)))    #最大池化层
+cnn.add(layers.Conv2D(64,(3,3),activation = 'relu'))   #卷积层64
+cnn.add(layers.MaxPooling2D((2,2)))   #最大池化层
+cnn.add(layers.Conv2D(128,(3,3),activation = 'relu'))  #卷积层 128
+cnn.add(layers.MaxPooling2D((2,2)))   #最大池化层
+cnn.add(layers.Conv2D(256,(3,3),activation="relu"))   #卷积层256
+cnn.add(layers.MaxPooling2D((2,2)))  #最大池化层
+cnn.add(layers.Flatten())   #展平层
+cnn.add(layers.Dropout(0.5))           ### Dropout
+cnn.add(layers.Dense(512,activation="relu"))    #全连接层
+cnn.add(layers.Dense(6,activation="sigmoid"))   #用sigmod函数分类输出
+cnn.compile(loss="categorical_crossentropy",    #损失函数
+            optimizer = optimizers.Adam(lr =1e-4), #更新优化器并设定学习速率
+            metrics=['acc']   #评估指标
+
+            )
+history = cnn.fit(X_train,y_train, #指定训练集
+                 epochs=10,   #指定循环伦茨
+                  batch_size=256,  #指定批量大小
+                  validation_data=(X_test,y_test)  #指定验证集
+                 )
+show_history(history)
